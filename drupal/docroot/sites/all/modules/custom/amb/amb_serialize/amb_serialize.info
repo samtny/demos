@@ -1,0 +1,6 @@
+name = AMB Serialize
+description = AMB Serialization utility methods.
+package = American Media Base
+core = 7.x
+
+dependencies[] = amb

@@ -1,0 +1,75 @@
+<?php
+
+/**
+ * @file
+ * Currently supplies ajax functionality to update properties of AMB assets.
+ */
+
+/**
+ * Implements hook_element_info_alter().
+ */
+function amb_asset_ajax_element_info_alter(&$types) {
+  foreach (_amb_asset_ajax_element_types() as $type) {
+    if (isset($types[$type])) {
+      $types[$type]['#process'] = array_merge($types[$type]['#process'], array('amb_asset_ajax_element_process'));
+
+      $module_path = drupal_get_path('module', 'amb_asset_ajax');
+
+      $types[$type]['#attached']['js'][$module_path . '/js/amb_asset_ajax.js'] = array(
+        'type' => 'file',
+        'scope' => 'footer',
+        'group' => JS_THEME,
+        'weight' => 11,
+      );
+    }
+  }
+}
+
+/**
+ * Element #process function callback.
+ */
+function amb_asset_ajax_element_process($element) {
+  static $drupal_static_fast;
+  if (!isset($drupal_static_fast)) {
+    $drupal_static_fast['perm'] = &drupal_static(__FUNCTION__);
+  }
+  $perm = &$drupal_static_fast['perm'];
+
+  if (!isset($perm['ajax_info'])) {
+    $perm['ajax_info'] = module_invoke_all('amb_element_ajax_info');
+  }
+  $ajax_info = $perm['ajax_info'];
+
+  if (!isset($perm['ajax_libs'])) {
+    $perm['ajax_libs'] = libraries_load('amb-adige-js');
+  }
+
+  if (isset($ajax_info[$element['#type']])) {
+    $info = $ajax_info[$element['#type']];
+
+    $resource_id_key = $info['resource_id_key'];
+
+    if (!empty($element['#value'][$resource_id_key])) {
+      $resource_id = $element['#value'][$resource_id_key];
+
+      foreach ($info['properties'] as $key => $amb_key) {
+        $element[$key]['#attributes'] = array(
+          'amb-id' => $resource_id,
+          'amb-key' => $amb_key,
+          'class' => array('amb-element-ajax'),
+        );
+      }
+    }
+  }
+
+  return $element;
+}
+
+/**
+ * Helper function returns allowable AJAX field types.
+ */
+function _amb_asset_ajax_element_types() {
+  static $element_types = array('amb_image');
+
+  return $element_types;
+}

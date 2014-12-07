@@ -1,0 +1,44 @@
+<?php
+
+/**
+ * @file
+ * AMB Image install hooks.
+ */
+
+/**
+ * Implements hook_field_schema().
+ */
+function amb_image_field_schema() {
+  return array(
+    'columns' => array(
+      'aid' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+      ),
+      'alt' => array(
+        'type' => 'varchar',
+        'length' => 512,
+        'not null' => FALSE,
+      ),
+      'title' => array(
+        'type' => 'varchar',
+        'length' => 1024,
+        'not null' => FALSE,
+      ),
+      'caption' => array(
+        'type' => 'varchar',
+        'length' => 1024,
+        'not null' => FALSE,
+      ),
+      'photo_credit' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+      ),
+    ),
+    'indexes' => array(
+      'aid' => array('aid'),
+    ),
+  );
+}

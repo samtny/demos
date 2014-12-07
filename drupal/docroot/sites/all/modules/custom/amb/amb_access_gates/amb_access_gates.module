@@ -1,0 +1,289 @@
+<?php
+
+/**
+ * @file
+ * Helper functions for initial AMB Access Gates rollout.
+ */
+
+/**
+ * Helper function returns defined AMB Access Gates.
+ */
+function amb_access_gates_access_gates_info($access_gate = NULL) {
+  $gates = array(
+    'default' => array(
+      'title' => 'Default',
+      'gate' => array(
+        array(
+          'field' => '.',
+          'locks' => array(
+            array(
+              'role' => 'anonymous',
+              'access' => '-full-control',
+            ),
+          ),
+        ),
+        array(
+          'field' => '.data',
+          'locks' => array(
+            array(
+              'role' => '*',
+              'access' => '+read,+write',
+            ),
+          ),
+        ),
+        array(
+          'field' => '.properties',
+          'locks' => array(
+            array(
+              'role' => '*',
+              'access' => '+read,+write',
+            ),
+          ),
+        ),
+      ),
+    ),
+    'flex_node_default' => array(
+      'title' => 'Node - FlexOnline.com Gallery',
+      'gate' => array(
+        array(
+          'field' => '.',
+          'locks' => array(
+            array(
+              'role' => 'flex_app',
+              'access' => '+read,+write',
+            ),
+          ),
+        ),
+        array(
+          'field' => '.amb_id',
+          'locks' => array(
+            array(
+              'role' => 'anonymous',
+              'access' => '+read,-write',
+            ),
+          ),
+        ),
+        array(
+          'field' => '.title',
+          'locks' => array(
+            array(
+              'role' => 'anonymous',
+              'access' => '+read,-write',
+            ),
+          ),
+        ),
+        array(
+          'field' => '.data',
+          'locks' => array(
+            array(
+              'role' => 'anonymous',
+              'access' => '+read,-write',
+            ),
+          ),
+        ),
+        array(
+          'field' => '.properties',
+          'locks' => array(
+            array(
+              'role' => 'anonymous',
+              'access' => '+read,-write',
+            ),
+          ),
+        ),
+        array(
+          'field' => '.related',
+          'locks' => array(
+            array(
+              'role' => 'anonymous',
+              'access' => '+read,-write',
+            ),
+          ),
+        ),
+      ),
+    ),
+    'flex_amb_asset_default' => array(
+      'title' => 'Image - FlexOnline.com',
+      'gate' => array(
+        array(
+          'field' => '.',
+          'locks' => array(
+            array(
+              'role' => 'flex_app',
+              'access' => '+read,+write',
+            ),
+          ),
+        ),
+        array(
+          'field' => '.amb_id',
+          'locks' => array(
+            array(
+              'role' => 'anonymous',
+              'access' => '+read,-write',
+            ),
+          ),
+        ),
+        array(
+          'field' => '.name',
+          'locks' => array(
+            array(
+              'role' => 'anonymous',
+              'access' => '+read,-write',
+            ),
+          ),
+        ),
+        array(
+          'field' => '.title',
+          'locks' => array(
+            array(
+              'role' => 'anonymous',
+              'access' => '+read,-write',
+            ),
+          ),
+        ),
+        array(
+          'field' => '.data',
+          'locks' => array(
+            array(
+              'role' => 'anonymous',
+              'access' => '+read,-write',
+            ),
+          ),
+        ),
+        array(
+          'field' => '.properties',
+          'locks' => array(
+            array(
+              'role' => 'anonymous',
+              'access' => '+read,-write',
+            ),
+          ),
+        ),
+      ),
+    ),
+    'nh_node_default' => array(
+      'title' => 'Node - NaturalHealthMag.com Gallery',
+      'gate' => array(
+        array(
+          'field' => '.',
+          'locks' => array(
+            array(
+              'role' => 'app_nh',
+              'access' => '+read,+write',
+            ),
+          ),
+        ),
+        array(
+          'field' => '.amb_id',
+          'locks' => array(
+            array(
+              'role' => 'anonymous',
+              'access' => '+read,-write',
+            ),
+          ),
+        ),
+        array(
+          'field' => '.title',
+          'locks' => array(
+            array(
+              'role' => 'anonymous',
+              'access' => '+read,-write',
+            ),
+          ),
+        ),
+        array(
+          'field' => '.data',
+          'locks' => array(
+            array(
+              'role' => 'anonymous',
+              'access' => '+read,-write',
+            ),
+          ),
+        ),
+        array(
+          'field' => '.related',
+          'locks' => array(
+            array(
+              'role' => 'anonymous',
+              'access' => '+read,-write',
+            ),
+          ),
+        ),
+      ),
+    ),
+    'nh_amb_asset_default' => array(
+      'title' => 'Image - NaturalHealthMag.com',
+      'gate' => array(
+        array(
+          'field' => '.',
+          'locks' => array(
+            array(
+              'role' => 'app_nh',
+              'access' => '+read,+write',
+            ),
+          ),
+        ),
+        array(
+          'field' => '.amb_id',
+          'locks' => array(
+            array(
+              'role' => 'anonymous',
+              'access' => '+read,-write',
+            ),
+          ),
+        ),
+        array(
+          'field' => '.name',
+          'locks' => array(
+            array(
+              'role' => 'anonymous',
+              'access' => '+read,-write',
+            ),
+          ),
+        ),
+        array(
+          'field' => '.title',
+          'locks' => array(
+            array(
+              'role' => 'anonymous',
+              'access' => '+read,-write',
+            ),
+          ),
+        ),
+        array(
+          'field' => '.data',
+          'locks' => array(
+            array(
+              'role' => 'anonymous',
+              'access' => '+read,-write',
+            ),
+          ),
+        ),
+        array(
+          'field' => '.properties',
+          'locks' => array(
+            array(
+              'role' => 'anonymous',
+              'access' => '+read,-write',
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+
+  return !empty($access_gate) ? $gates[$access_gate]['gate'] : $gates;
+}
+
+/**
+ * Helper function returns AMB Access Gates as an options array.
+ */
+function _amb_access_gates_options() {
+  $options = array();
+
+  $gates_info = amb_access_gates_access_gates_info();
+  foreach ($gates_info as $key => $val) {
+    $options[$key] = $val['title'];
+  };
+
+  return $options;
+}

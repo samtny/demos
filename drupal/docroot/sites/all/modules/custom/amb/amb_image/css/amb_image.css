@@ -1,0 +1,36 @@
+
+/**
+ * AMB Image upload widget.
+ */
+
+/* TODO: I think we are fixing something else with this; */
+.sticky-header {
+  z-index: 1;
+}
+
+.form-amb-image .form-submit {
+  float: left;
+  margin: 0 1em 0 0;
+}
+
+.amb-image-element .ajax-progress .throbber {
+  margin: 0 0 -1px 4px;
+}
+
+.amb-image-element .amb-image-derivative {
+  min-height: 60px;
+  border: 1px solid lightgray;
+  margin: 5px 10px 10px 0;
+  float: left;
+  background: url(../images/AMB-Image-Placeholder.png);
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.amb-image-properties {
+  float: left;
+}
+
+.amb-image-element .form-file {
+  float: left;
+}

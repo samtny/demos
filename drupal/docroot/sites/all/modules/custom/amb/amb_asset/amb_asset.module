@@ -1,0 +1,227 @@
+<?php
+
+/**
+ * @file
+ * Defines an "amb_asset" element, and an "amb_asset" field type.
+ */
+
+// Field API hooks.
+require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'includes' . DIRECTORY_SEPARATOR . 'amb_asset.field.inc';
+
+/**
+ * Implements hook_element_info().
+ */
+function amb_asset_element_info() {
+  $module_path = drupal_get_path('module', 'amb_asset');
+
+  return array(
+    'amb_asset' => array(
+      '#input' => TRUE,
+      '#attributes' => array('class' => array('amb-asset-element', 'clearfix')),
+      '#process' => array('amb_asset_amb_asset_process'),
+      '#attached' => array(
+        'css' => array(
+          $module_path . '/css/amb_asset.css' => array(
+            'group' => CSS_THEME,
+          ),
+        ),
+      ),
+      '#theme' => 'amb_asset',
+      '#theme_wrappers' => array('form_element'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_theme().
+ */
+function amb_asset_theme() {
+  return array(
+    'amb_asset' => array(
+      'render element' => 'element',
+    ),
+    'amb_asset_link' => array(
+      'variables' => array(
+        'item' => NULL,
+      ),
+    ),
+  );
+}
+
+/**
+ * Element #process callback.
+ */
+function amb_asset_amb_asset_process($element, &$form_state, $form) {
+  $item = $element['#value'];
+  $wrapper = $element['#id'] . '-ajax';
+
+  $element['aid'] = array(
+    '#type' => 'hidden',
+    '#default_value' => isset($item['aid']) ? $item['aid'] : '',
+  );
+
+  $implode_parents = implode('_', $element['#parents']);
+  $array_slice_parents = array_slice($element['#parents'], 0, -2);
+
+  if (!empty($item['aid'])) {
+    $element['description'] = array(
+      '#title' => t('AMB Id:'),
+      '#theme' => 'amb_asset_link',
+      '#item' => $item,
+      '#theme_wrappers' => array('form_element'),
+    );
+
+    $element['remove_button'] = array(
+      '#name' => $implode_parents . '_remove_button',
+      '#type' => 'submit',
+      '#value' => t('Remove'),
+      '#ajax' => array(
+        'callback' => 'amb_asset_amb_asset_ajax',
+        'wrapper' => $wrapper,
+      ),
+      '#submit' => array('amb_asset_amb_asset_submit'),
+      '#limit_validation_errors' => array(
+        $array_slice_parents,
+      ),
+    );
+  }
+  else {
+    $element['upload'] = array(
+      '#name' => 'files[' . $implode_parents . ']',
+      '#type' => 'file',
+      '#theme_wrappers' => array(),
+      '#attributes' => array(
+        'class' => array('amb-asset-file'),
+      ),
+    );
+
+    $element['upload_button'] = array(
+      '#name' => $implode_parents . '_upload_button',
+      '#type' => 'submit',
+      '#value' => t('Upload'),
+      '#ajax' => array(
+        'callback' => 'amb_asset_amb_asset_ajax',
+        'wrapper' => $wrapper,
+      ),
+      '#submit' => array('amb_asset_amb_asset_submit'),
+      '#limit_validation_errors' => array(
+        $array_slice_parents,
+      ),
+    );
+  }
+
+  $element['#prefix'] = '<div id="' . $wrapper . '">';
+  $element['#suffix'] = '</div>';
+
+  return $element;
+}
+
+/**
+ * Upload / Remove button #submit callback.
+ */
+function amb_asset_amb_asset_submit($form, &$form_state) {
+  $array_parents = $form_state['triggering_element']['#array_parents'];
+
+  $button = array_pop($array_parents);
+
+  $element = drupal_array_get_nested_value($form, $array_parents);
+
+  switch ($button) {
+    case 'upload_button':
+      $process_template = isset($element['#process_template']) ? $element['#process_template'] : '';
+      $access_gate = isset($element['#access_gate']) ? $element['#access_gate'] : '';
+
+      $asset = amb_asset_save_upload(implode('_', $array_parents), $process_template, $access_gate);
+      if ($asset) {
+        $values = array('aid' => $asset->id);
+        form_set_value($element, $values, $form_state);
+        drupal_array_set_nested_value($form_state['input'], $element['#parents'], $values);
+        $form_state['rebuild'] = TRUE;
+      }
+      break;
+
+    case 'remove_button':
+      $values = array('aid' => '');
+      form_set_value($element, $values, $form_state);
+      drupal_array_set_nested_value($form_state['input'], $element['#parents'], $values);
+      $form_state['rebuild'] = TRUE;
+      break;
+  }
+}
+
+/**
+ * Upload / Remove button #ajax callback.
+ */
+function amb_asset_amb_asset_ajax($form, $form_state) {
+  $array_parents = ($form_state['triggering_element']['#array_parents']);
+  array_pop($array_parents);
+
+  $element = drupal_array_get_nested_value($form, $array_parents);
+
+  // TODO: find another way to suppress undesirable form elements;
+  unset($element['_weight']);
+
+  return $element;
+}
+
+/**
+ * Helper function creates an asset from a file upload.
+ */
+function amb_asset_save_upload($source, $process_template = NULL, $access_gate = NULL) {
+  static $upload_cache;
+
+  if (isset($upload_cache[$source])) {
+    return $upload_cache[$source];
+  }
+
+  $filename = trim(drupal_basename($_FILES['files']['name'][$source]), '.');
+  $uri      = $_FILES['files']['tmp_name'][$source];
+  $filemime = file_get_mimetype($filename);
+
+  if (file_exists($uri)) {
+    $file = array(
+      'path' => $uri,
+      'mimetype' => $filemime,
+      'filename' => $filename,
+    );
+    $gate = !empty($access_gate) ? amb_access_gates_access_gates_info($access_gate) : array();
+    $resource = amb_adige_create_resource('asset', array('name' => $filename), array(), $file, $process_template, $gate, FALSE, TRUE);
+
+    if ($resource) {
+      $upload_cache[$source] = $resource;
+      return $resource;
+    }
+    else {
+      drupal_set_message(t('Asset upload fail.  Check your network connection and try again.'));
+    }
+  }
+
+  return NULL;
+}
+
+/**
+ * AMB Asset #theme callback.
+ */
+function theme_amb_asset($variables) {
+  $element = $variables['element'];
+  $element['#attributes']['type'] = 'amb_asset';
+  element_set_attributes($element, array('id', 'name', 'size'));
+  _form_set_class($element, array('form-amb-asset'));
+
+  $output = '<div' . drupal_attributes($element['#attributes']) . '>' . "\n";
+
+  $output .= drupal_render_children($element);
+
+  $output .= "</div>\n";
+
+  return $output;
+}
+
+/**
+ * AMB Asset Link #theme callback.
+ */
+function theme_amb_asset_link($variables) {
+  $item = $variables['item'];
+
+  return l($item['aid'], amb_adel_resource_url($item['aid']), array('attributes' => array('target' => '_blank')));
+}

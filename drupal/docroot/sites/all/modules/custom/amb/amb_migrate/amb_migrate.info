@@ -1,0 +1,10 @@
+name = AMB Migrate
+description = Migration tools for American Media Base
+package = American Media Base
+core = 7.x
+
+configure = admin/config/amb/amb_migrate
+
+dependencies[] = amb_adige
+dependencies[] = amb_resource
+dependencies[] = amb_serialize

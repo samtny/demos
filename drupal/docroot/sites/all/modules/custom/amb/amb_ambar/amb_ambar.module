@@ -1,0 +1,250 @@
+<?php
+
+/**
+ * @file
+ * AMB Ambar
+ */
+
+/**
+ * Helper function returns available resource derivatives.
+ */
+function amb_ambar_derivatives_info($process_template = NULL, $derivative = NULL) {
+  $info = &drupal_static(__FUNCTION__);
+
+  if (!isset($info)) {
+    // TODO: this hard-coded bit gets loaded instead from some variable.
+    $info = array(
+      'default' => array(
+        'title' => 'Default',
+        'resource_types' => array(
+          'asset',
+          'collection',
+          'event',
+          'individual',
+          'story',
+        ),
+        'derivatives' => array(
+          '120/thumbnail/default.jpg' => array(
+            'title' => 'Thumbnail - 120xAny',
+            'width' => 120,
+            'height' => 'auto',
+          ),
+          '120/thumbnail/square.jpg' => array(
+            'title' => 'Thumbnail - 120x120',
+            'width' => 120,
+            'height' => 120,
+          ),
+          '200/thumbnail/default.jpg' => array(
+            'title' => 'Thumbnail - 200xAny',
+            'width' => 200,
+            'height' => 'auto',
+          ),
+          '200/thumbnail/square.jpg' => array(
+            'title' => 'Thumbnail - 200x200',
+            'width' => 200,
+            'height' => 200,
+          ),
+          '400/small_preview/default.jpg' => array(
+            'title' => 'Image - 400xAny',
+            'width' => 400,
+            'height' => 'auto',
+          ),
+          '600/large_preview/default.jpg' => array(
+            'title' => 'Image - 600xAny',
+            'width' => 600,
+            'height' => 'auto',
+          ),
+        ),
+      ),
+      'flex_gallery' => array(
+        'title' => 'Node - FlexOnline.com Gallery',
+        'resource_types' => array('collection'),
+        'derivatives' => array(),
+      ),
+      'flex_slideshow' => array(
+        'title' => 'Image - FlexOnline.com Gallery Slide',
+        'resource_types' => array('asset'),
+        'derivatives' => array(
+          'flex_slideshow/100/thumbnail.jpg' => array(
+            'title' => 'Thumbnail 100xAny',
+            'width' => 100,
+            'height' => 'auto',
+          ),
+          'flex_slideshow/130/74/thumbnail.jpg' => array(
+            'title' => 'Article Thumbnail 130x74',
+            'width' => 130,
+            'height' => 74,
+          ),
+          'flex_slideshow/612/slide.jpg' => array(
+            'title' => 'Gallery Slide 612xAny',
+            'width' => 612,
+            'height' => 'auto',
+          ),
+        ),
+      ),
+      'flex_rotator' => array(
+        'title' => 'Image - FlexOnline.com Rotator',
+        'resource_types' => array('asset'),
+        'derivatives' => array(
+          'flex_rotator/100/thumbnail.jpg' => array(
+            'title' => 'Thumbnail 100xAny',
+            'width' => 100,
+            'height' => 'auto',
+          ),
+          'flex_rotator/130/74/thumbnail.jpg' => array(
+            'title' => 'Article Thumbnail 130x74',
+            'width' => 130,
+            'height' => 74,
+          ),
+          'flex_rotator/274/156/thumbnail.jpg' => array(
+            'title' => 'Article Thumbnail 274x156',
+            'width' => 274,
+            'height' => 156,
+          ),
+          'flex_rotator/612/346/rotator.jpg' => array(
+            'title' => 'Homepage Rotator 612x346',
+            'width' => 612,
+            'height' => 346,
+          ),
+          'flex_rotator/970/550/large_rotator.jpg' => array(
+            'title' => 'Photos Rotator 970x550',
+            'width' => 970,
+            'height' => 550,
+          ),
+        ),
+      ),
+      'nh_gallery' => array(
+        'title' => 'Node - NaturalHealthMag.com Gallery',
+        'resource_types' => array('collection'),
+        'derivatives' => array(),
+      ),
+      'nh_rotator' => array(
+        'title' => 'Image - NaturalHealthMag.com Rotator',
+        'resource_types' => array('asset'),
+        'derivatives' => array(
+          'nh_rotator/414/414/rotator.jpg' => array(
+            'title' => '414x414',
+            'width' => 414,
+            'height' => 414,
+          ),
+          'nh_rotator/304/304/rotator.jpg' => array(
+            'title' => '304x304',
+            'width' => 304,
+            'height' => 304,
+          ),
+          'nh_rotator/210/210/rotator.jpg' => array(
+            'title' => '210x210',
+            'width' => 210,
+            'height' => 210,
+          ),
+          'nh_rotator/140/140/rotator.jpg' => array(
+            'title' => '140x140',
+            'width' => 140,
+            'height' => 140,
+          ),
+          'nh_rotator/196/196/rotator.jpg' => array(
+            'title' => '196x196',
+            'width' => 196,
+            'height' => 196,
+          ),
+        ),
+      ),
+      'nh_slide' => array(
+        'title' => 'Image - NaturalHealthMag.com Gallery Slide',
+        'resource_types' => array('asset'),
+        'derivatives' => array(
+          'nh_slide/632/632/slide.jpg' => array(
+            'title' => '632x632',
+            'width' => 632,
+            'height' => 632,
+          ),
+          'nh_slide/130/130/thumbnail.jpg' => array(
+            'title' => '130x130',
+            'width' => 130,
+            'height' => 130,
+          ),
+        ),
+      ),
+      'shape_rotator' => array(
+        'title' => 'Image - Shape.com Rotator',
+        'resource_types' => array('asset'),
+        'derivatives' => array(
+          '200x200' => array(
+            'title' => '200x200',
+            'width' => 200,
+            'height' => 200,
+          ),
+          '384x384' => array(
+            'title' => '384x384',
+            'width' => 384,
+            'height' => 384,
+          ),
+        ),
+      ),
+      'shape_slideshow' => array(
+        'title' => 'Image - Shape.com Gallery Slide',
+        'resource_types' => array('asset'),
+        'derivatives' => array(
+          '90x90' => array(
+            'title' => '90x90',
+            'width' => 90,
+            'height' => 90,
+          ),
+          '200x200' => array(
+            'title' => '200x200',
+            'width' => 200,
+            'height' => 200,
+          ),
+          '600x600' => array(
+            'title' => '600x600',
+            'width' => 600,
+            'height' => 600,
+          ),
+        ),
+      ),
+    );
+
+    foreach (array_keys($info) as $val) {
+      $info[$val]['derivatives'] = array_merge($info['default']['derivatives'], $info[$val]['derivatives']);
+    }
+  }
+
+  if (!empty($process_template)) {
+    if (!empty($derivative)) {
+      return $info[$process_template]['derivatives'][$derivative];
+    }
+    return $info[$process_template];
+  }
+
+  return $info;
+}
+
+/**
+ * Helper function returns process template options.
+ */
+function amb_ambar_process_template_options() {
+  $options = array();
+
+  $process_templates = amb_ambar_derivatives_info();
+
+  foreach ($process_templates as $process_template => $info) {
+    $options[$process_template] = $info['title'];
+  }
+
+  return $options;
+}
+
+/**
+ * Helper function returns resource derivative options.
+ */
+function amb_ambar_derivatives_options($process_template = 'default') {
+  $options = array();
+
+  $info = amb_ambar_derivatives_info();
+
+  foreach ($info[$process_template]['derivatives'] as $derivative => $props) {
+    $options[$derivative] = $props['title'];
+  }
+
+  return $options;
+}

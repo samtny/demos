@@ -1,0 +1,312 @@
+<?php
+
+/**
+ * @file
+ * AMB Persona is the Authentication component of American Media Base.
+ */
+
+/**
+ * Implements hook_permission().
+ */
+function amb_persona_permission() {
+  return array(
+    'administer amb_persona' => array(
+      'title' => t('Administer AMB Persona'),
+      'description' => t('Administer site settings for the AMB Persona service'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function amb_persona_menu() {
+  $items['admin/config/amb/persona'] = array(
+    'title' => 'AMB Persona',
+    'description' => 'Persona is the Authentication component of American Media Base.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('amb_persona_site_form'),
+    'access arguments' => array('administer amb_persona'),
+    'file' => 'includes/amb_persona.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  $items['admin/config/amb/persona/site'] = array(
+    'title' => 'Site Settings',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+
+  $items['admin/config/amb/persona/test'] = array(
+    'title' => 'Test',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('amb_persona_test_form'),
+    'access arguments' => array('administer amb_persona'),
+    'file' => 'includes/amb_persona.test.inc',
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items['amb/persona/ajax/%'] = array(
+    'description' => 'Persona AJAX endpoint',
+    'page callback' => 'amb_persona_ajax',
+    'page arguments' => array(3),
+    'file' => 'includes/amb_persona.ajax.inc',
+    // TODO: make AMB-specific, but do consider 'editor', 'producer', etc.
+    'access arguments' => array('access administration pages'),
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_libraries_info().
+ */
+function amb_persona_libraries_info() {
+  $amb_sdks_path = libraries_get_path('amb-sdks');
+
+  $libraries['amb-persona-php'] = array(
+    'name' => 'AMB Persona PHP',
+    'library path' => $amb_sdks_path . '/sdk-php/amb-persona-php-client',
+    'version arguments' => array(
+      'file' => 'README.md',
+      // 0.x: Version 0.1
+      'pattern' => "@Version (\d+.\d+)@",
+      'lines' => 1,
+    ),
+    'files' => array(
+      'php' => array(
+        'src/PersonaAuthenticator.php',
+        'src/DigestAuthenticator.php',
+        'src/Credential.php',
+      ),
+    ),
+  );
+
+  $libraries['cryptojs'] = array(
+    'name' => 'CryptoJS',
+    'version arguments' => array(
+      'file' => 'rollups/hmac-sha256.js',
+      // 3.x: Version 3.1.2
+      'pattern' => "@v(\d+.\d+)@",
+      'lines' => 5,
+    ),
+    'files' => array(
+      'js' => array(
+        'rollups/hmac-sha256.js',
+        'components/enc-base64-min.js',
+      ),
+    ),
+  );
+
+  $libraries['amb-persona-js'] = array(
+    'name' => 'AMB Persona Javascript',
+    'library path' => $amb_sdks_path . '/sdk-javascript',
+    'version arguments' => array(
+      'file' => 'README.md',
+      // 0.x: Version 0.1
+      'pattern' => "@Version (\d+.\d+)@",
+      'lines' => 5,
+    ),
+    'files' => array(
+      'js' => array(
+        'source/jquery.persona.js',
+      ),
+    ),
+    'dependencies' => array(
+      'cryptojs',
+      'underscore.js',
+    ),
+    'callbacks' => array(
+      'pre-load' => array(
+        'amb_persona_libraries_js_preload',
+      ),
+    ),
+    'integration files' => array(
+      'amb_persona' => array(
+        'js' => array(
+          'js/amb_persona.js',
+        ),
+      ),
+    ),
+    'post-load integration files' => TRUE,
+  );
+
+  return $libraries;
+}
+
+/**
+ * Libraries pre-load callback.
+ */
+function amb_persona_libraries_js_preload() {
+  $amb_persona = variable_get('amb_persona', array());
+  $token_refresh_interval = amb_persona_get_token_refresh_interval();
+
+  drupal_add_js(array(
+    'amb_persona' => array(
+      'site_application' => $amb_persona['site_application'],
+      'token_refresh_interval' => $token_refresh_interval,
+    )), 'setting');
+}
+
+/**
+ * Helper function returns AMB Persona token refresh interval.
+ */
+function amb_persona_get_token_refresh_interval() {
+  $fallback_interval = '+20 minutes';
+
+  $settings = variable_get('amb_persona', array('site_session_slide_interval' => $fallback_interval));
+
+  $site_session_slide_interval = !empty($settings['site_session_slide_interval']) ? $settings['site_session_slide_interval'] : $fallback_interval;
+
+  $time = time();
+
+  return 1000 * (strtotime($site_session_slide_interval, $time) - $time) * .8;
+}
+
+/**
+ * Obtain a token having AMB Site Admin account permissions.
+ */
+function amb_persona_get_admin_token() {
+  $session = amb_persona_get_admin_session();
+
+  return $session['token'];
+}
+
+/**
+ * Obtain a session having AMB Site Admin account permissions.
+ */
+function amb_persona_get_admin_session($force = FALSE) {
+  $session = array();
+
+  $settings = variable_get('amb_persona', array());
+
+  $cache = cache_get('amb_persona_admin_session', 'cache');
+
+  if ($cache && time() < $cache->expire) {
+    if (amb_persona_slide_admin_session($cache->data)) {
+      $session = $cache->data;
+    }
+  }
+
+  if ($force || empty($session)) {
+    libraries_load('amb-persona-php');
+
+    $credential = new Credential($settings['site_credential_email'], $settings['site_credential_password']);
+    $response = amb_persona_authenticate($credential);
+
+    if ($response['success']) {
+      $body = json_decode($response['body']);
+
+      $session = array(
+        'user_id' => $body->user_id,
+        'token' => $body->access_token,
+      );
+    }
+  }
+
+  $expire = !empty($settings['site_session_slide_interval']) ? $settings['site_session_slide_interval'] : '+20 minutes';
+  cache_set('amb_persona_admin_session', $session, 'cache', strtotime($expire, time()));
+
+  return $session;
+}
+
+/**
+ * Slide TTL of Session having AMB Site Admin account permissions.
+ *
+ * @return bool
+ *   TRUE for token slide was success, else FALSE.
+ */
+function amb_persona_slide_admin_session($session, $debug = FALSE) {
+  libraries_load('amb-persona-php');
+
+  $settings = variable_get('amb_persona');
+
+  $persona = new DigestAuthenticator(array('debugMode' => $debug ? TRUE : FALSE));
+  $persona->baseUrl = $settings['endpoint'];
+  $persona->application = $settings['site_application'];
+  $persona->apiId = $settings['site_api_id'];
+  $persona->apiPrivateKey = $settings['site_api_private_key'];
+
+  return $persona->slideUserSession($session['user_id'], $session['token']);
+}
+
+/**
+ * Authenticate using the supplied credential.
+ */
+function amb_persona_authenticate($credential, $debug = FALSE) {
+  $response = array();
+
+  $settings = variable_get('amb_persona');
+
+  $persona = new DigestAuthenticator(array('debugMode' => $debug ? TRUE : FALSE));
+  $persona->baseUrl = $settings['endpoint'];
+  $persona->application = $settings['site_application'];
+  $persona->apiId = $settings['site_api_id'];
+  $persona->apiPrivateKey = $settings['site_api_private_key'];
+
+  $role = $settings['site_credential_role'];
+
+  $response['success'] = $persona->authenticate($credential, $role);
+  $response['body'] = $persona->getResponse();
+  if ($debug === TRUE) {
+    $response['debug'] = $persona->getDebugInfo();
+  }
+
+  return $response;
+}
+
+/**
+ * Create a user.
+ */
+function amb_persona_create_user($info, $debug = FALSE) {
+  $response = array();
+
+  $settings = variable_get('amb_persona');
+
+  $persona = new DigestAuthenticator(array('debugMode' => $debug ? TRUE : FALSE));
+  $persona->baseUrl = $settings['endpoint'];
+  $persona->application = $settings['site_application'];
+  $persona->apiId = $settings['site_api_id'];
+  $persona->apiPrivateKey = $settings['site_api_private_key'];
+
+  $response['success'] = $persona->createUser($info);
+  $response['body'] = $persona->getResponse();
+  if ($debug === TRUE) {
+    $response['debug'] = $persona->getDebugInfo();
+  }
+
+  return $response;
+}
+
+/**
+ * Delete a user from Persona.
+ *
+ * @param mixed[] $info
+ *   User data array containing at a minimum 'user_id' member.
+ * @param string $token
+ *   Site application domain token with permission to delete this user
+ *   (e.g.; the user's own token, or a Persona admin token).
+ * @param bool $debug
+ *   Include debug data.
+ *
+ * @return mixed[]
+ *   A response array.
+ */
+function amb_persona_delete_user($info, $token, $debug = FALSE) {
+  $response = array();
+
+  $settings = variable_get('amb_persona');
+
+  $persona = new DigestAuthenticator(array('debugMode' => $debug ? TRUE : FALSE));
+  $persona->baseUrl = $settings['endpoint'];
+  $persona->application = $settings['site_application'];
+  $persona->apiId = $settings['site_api_id'];
+  $persona->apiPrivateKey = $settings['site_api_private_key'];
+
+  $response['success'] = $persona->deleteUser($info['user_id'], $token);
+  $response['body'] = $persona->getResponse();
+  if ($debug === TRUE) {
+    $response['debug'] = $persona->getDebugInfo();
+  }
+
+  return $response;
+}

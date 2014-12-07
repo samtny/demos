@@ -1,0 +1,8 @@
+name = AMB Asset
+description = Integrates binary Assets from the AMB content delivery network.
+package = American Media Base
+core = 7.x
+
+dependencies[] = amb_adel
+dependencies[] = amb_adige
+dependencies[] = amb_ambar

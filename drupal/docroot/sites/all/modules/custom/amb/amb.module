@@ -1,0 +1,61 @@
+<?php
+
+/**
+ * @file
+ * Base package hooks for American Media Base.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function amb_menu() {
+  $items['admin/config/amb'] = array(
+    'title' => 'AMB',
+    'page callback' => 'system_admin_menu_block_page',
+    'access arguments' => array('access administration pages'),
+    'file' => 'system.admin.inc',
+    'file path' => '/modules/system',
+    'weight' => -20,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_libraries_info().
+ */
+function amb_libraries_info() {
+  $libraries['amb-sdks'] = array(
+    'name' => 'AMB SDK Root (placeholder)',
+  );
+
+  $libraries['knockout.js'] = array(
+    'name' => 'Knockout JS',
+    'vendor url' => 'http://knockoutjs.com',
+    'version arguments' => array(
+      'file' => 'knockout-3.1.0.js',
+      // 3.0.0: v3.0.0
+      'pattern' => '/v([\d\.]+)/',
+      'lines' => 1,
+    ),
+    'files' => array(
+      'js' => array('knockout-3.1.0.js'),
+    ),
+  );
+
+  $libraries['underscore.js'] = array(
+    'name' => 'Underscore.JS',
+    'vendor url' => 'http://underscorejs.org',
+    'version arguments' => array(
+      'file' => 'underscore.js',
+      // 1.6.0: v1.6.0
+      'pattern' => '/Underscore.js ([\d\.]+)/',
+      'lines' => 1,
+    ),
+    'files' => array(
+      'js' => array('underscore-min.js'),
+    ),
+  );
+
+  return $libraries;
+}

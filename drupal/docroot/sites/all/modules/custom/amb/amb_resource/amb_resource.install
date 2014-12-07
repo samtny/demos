@@ -1,0 +1,37 @@
+<?php
+
+/**
+ * @file
+ * Install hooks for amb_resource.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function amb_resource_schema() {
+  $schema['amb_resource'] = array(
+    'fields' => array(
+      'entity_type' => array(
+        'description' => 'Entity type.',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+      ),
+      'entity_id' => array(
+        'description' => 'Entity id.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'resource_id' => array(
+        'description' => 'AMB resource id.',
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => FALSE,
+      ),
+    ),
+    'primary key' => array('entity_type', 'entity_id'),
+  );
+
+  return $schema;
+}

@@ -1,0 +1,33 @@
+
+/* position the Browse button inside eligible elements; */
+
+.amb-image-element .amb-asset-browser-element, .amb-asset-element .amb-asset-browser-element {
+  float: left;
+}
+
+/* jquery ui selectors */
+
+/* the following seems to also fix 'media' popup, so don't namespace it; */
+.ui-dialog {
+  z-index: 1008;
+}
+
+.aab-dialog.ui-dialog {
+  padding: 0;
+  border: none;
+  min-width: 878px;
+}
+
+.aab-dialog.ui-dialog .ui-dialog-titlebar {
+  display: none;
+}
+
+.aab-dialog .ui-dialog-content {
+  padding: 0;
+  border: none;
+  overflow: hidden;
+}
+
+.noscroll {
+  overflow: hidden;
+}

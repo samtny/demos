@@ -1,0 +1,90 @@
+<?php
+
+/**
+ * @file
+ * AMB Adel resource delivery component of American Media Base.
+ */
+
+/**
+ * Implements hook_permission().
+ */
+function amb_adel_permission() {
+  return array(
+    'administer amb_adel' => array(
+      'title' => t('Administer AMB Adel'),
+      'description' => t('Administer site settings for the AMB Adel service'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function amb_adel_menu() {
+  $items['admin/config/amb/adel'] = array(
+    'title' => 'AMB Adel',
+    'description' => 'Adel is the Resource Delivery component of American Media Base.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('amb_adel_general_form'),
+    'access arguments' => array('administer amb_adel'),
+    'file' => 'includes/amb_adel.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  $items['admin/config/amb/adel/general'] = array(
+    'title' => 'General Settings',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_libraries_info().
+ */
+function amb_adel_libraries_info() {
+  $amb_sdks_path = libraries_get_path('amb-sdks');
+
+  $libraries['amb-adel-js'] = array(
+    'name' => 'AMB Adel Javascript',
+    'library path' => $amb_sdks_path . '/sdk-javascript',
+    'version arguments' => array(
+      'file' => 'README.md',
+      // 0.x: Version 0.1
+      'pattern' => '@Version (\d+.\d+)@',
+      'lines' => 5,
+    ),
+    'files' => array(
+      'js' => array(
+        'source/jquery.adel.js',
+      ),
+    ),
+    'callbacks' => array(
+      'pre-load' => array(
+        'amb_adel_libraries_js_preload',
+      ),
+    ),
+  );
+
+  return $libraries;
+}
+
+/**
+ * Libraries pre-load callback for amb-adel-js.
+ */
+function amb_adel_libraries_js_preload() {
+  $settings = variable_get('amb_adel');
+
+  drupal_add_js(array(
+    'amb_adel' => $settings,
+  ), 'setting');
+}
+
+/**
+ * Helper function returns fully qualified url to a resource.
+ */
+function amb_adel_resource_url($rid, $derivative = NULL) {
+  $adel = variable_get('amb_adel');
+
+  return $adel['endpoint'] . '/' . $rid . ($derivative ? '/' . $derivative : '');
+}

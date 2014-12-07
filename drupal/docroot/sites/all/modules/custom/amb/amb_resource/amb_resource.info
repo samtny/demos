@@ -1,0 +1,9 @@
+name = AMB Resource
+description = Map and merge entities to American Media Base.
+package = American Media Base
+core = 7.x
+
+configure = admin/config/amb/resource
+
+dependencies[] = amb_serialize
+dependencies[] = amb_access_gates

@@ -1,0 +1,7 @@
+name = AMB Image
+description = Integrates Image Assets from the AMB content delivery network.
+package = American Media Base
+core = 7.x
+
+dependencies[] = amb_asset
+dependencies[] = amb_util

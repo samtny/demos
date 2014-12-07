@@ -1,0 +1,9 @@
+name = AMB Asset Browser
+description = Browse resources residing in the American Media Base content delivery network.
+package = American Media Base
+core = 7.x
+
+dependencies[] = amb_asset
+dependencies[] = amb_access_gates
+dependencies[] = amb_amas
+dependencies[] = amb_resource

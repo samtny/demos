@@ -1,0 +1,191 @@
+<?php
+
+/**
+ * @file
+ * Handles resource 'mapping' between Drupal and AMB.  Still heavily in 'flux'.
+ */
+
+/**
+ * Implements hook_permission().
+ */
+function amb_resource_permission() {
+  return array(
+    'administer amb_resource' => array(
+      'title' => t('Administer AMB Resource'),
+      'description' => t('Administer AMB Resource'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function amb_resource_menu() {
+  $items['admin/config/amb/resource'] = array(
+    'title' => 'AMB Resource',
+    'description' => 'Map and merge entities to American Media Base.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('amb_resource_entity_types_admin_form'),
+    'access arguments' => array('administer amb_resource'),
+    'file' => 'includes/amb_resource.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  $items['admin/config/amb/resource/entity_types'] = array(
+    'title' => 'Entity Type Settings',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_entity_insert().
+ */
+function amb_resource_entity_insert($entity, $type) {
+  amb_resource_push_entity($entity, $type);
+}
+
+/**
+ * Implements hook_entity_update().
+ */
+function amb_resource_entity_update($entity, $type) {
+  amb_resource_push_entity($entity, $type);
+}
+
+/**
+ * Helper function inserts or updates AMB Resources for mapped bundles.
+ */
+function amb_resource_push_entity($entity, $type, $verbose = FALSE) {
+  $resource = NULL;
+
+  $push = (isset($entity->path) && isset($entity->path['amb_resource_push_entity'])) ? $entity->path['amb_resource_push_entity'] : TRUE;
+
+  if ($push) {
+    $types = variable_get('amb_resource_entity_types', array());
+
+    $info = entity_get_info($type);
+
+    $bundle = isset($entity->{$info['entity keys']['bundle']}) ? $entity->{$info['entity keys']['bundle']} : FALSE;
+
+    if ($bundle && !empty($types[$type]['bundles'][$bundle]['resource_type'])) {
+      $bundle_mapping = $types[$type]['bundles'][$bundle];
+
+      $existing_resource_id = db_query('SELECT resource_id FROM {amb_resource} WHERE entity_type = :entity_type AND entity_id = :entity_id',
+        array(
+          ':entity_type' => $type,
+          ':entity_id' => $entity->{$info['entity keys']['id']},
+        ))->fetchField();
+
+      if (!empty($existing_resource_id)) {
+        $metadata = amb_serialize_amb_serialize_entity($entity);
+
+        $related = _amb_resource_metadata_scrub_related($metadata);
+        $properties = _amb_resource_metadata_scrub_properties($metadata);
+        $process_template = $bundle_mapping['process_template'];
+
+        $resource = amb_adige_update_resource($existing_resource_id, $properties, $related, $process_template, NULL, $verbose, FALSE);
+      }
+      else {
+        $metadata = amb_serialize_amb_serialize_entity($entity);
+
+        $resource_type = $bundle_mapping['resource_type'];
+        $related = _amb_resource_metadata_scrub_related($metadata);
+        $properties = _amb_resource_metadata_scrub_properties($metadata);
+        $process_template = $bundle_mapping['process_template'];
+        $gate = amb_access_gates_access_gates_info($bundle_mapping['access_gate']);
+
+        $resource = amb_adige_create_resource($resource_type, $properties, $related, NULL, $process_template, $gate, $verbose, FALSE);
+
+        if (!empty($resource->id)) {
+          db_insert('amb_resource')
+            ->fields(array(
+              'entity_type' => $type,
+              'entity_id' => $entity->{$info['entity keys']['id']},
+              'resource_id' => $resource->id,
+            ))
+            ->execute();
+        }
+      }
+    }
+  }
+
+  return $resource;
+}
+
+/**
+ * Helper function returns valid AMB resource types.
+ */
+function amb_resource_resource_types() {
+  return array(
+    'asset' => array(
+      'title' => 'Asset',
+    ),
+    'collection' => array(
+      'title' => 'Collection',
+    ),
+    'event' => array(
+      'title' => 'Event',
+    ),
+    'individual' => array(
+      'title' => 'Individual',
+    ),
+    'story' => array(
+      'title' => 'Story',
+    ),
+  );
+}
+
+/**
+ * Helper function returns valid AMB resources types as an options array.
+ */
+function _amb_resource_types_options() {
+  $options = &drupal_static(__FUNCTION__);
+
+  if (isset($options)) {
+    return $options;
+  }
+
+  $resource_types = amb_resource_resource_types();
+
+  foreach ($resource_types as $key => $val) {
+    $options[$key] = $val['title'];
+  }
+
+  return $options;
+}
+
+/**
+ * Helper function cleans up properties array and returns 'related'.
+ */
+function _amb_resource_metadata_scrub_related(&$metadata) {
+  $related = array();
+
+  if (!empty($metadata['related'])) {
+    $related = $metadata['related'];
+    unset($metadata['related']);
+  }
+
+  return $related;
+}
+
+/**
+ * Helper function sets top-level properties from Resource metadata.
+ */
+function _amb_resource_metadata_scrub_properties(&$metadata) {
+  $properties = array();
+
+  if (!empty($metadata['related'])) {
+    unset($metadata['related']);
+  }
+
+  $amb_persona = variable_get('amb_persona', array('site_application' => 'undefined'));
+  $namespace = $amb_persona['site_application'];
+
+  // TODO: check 'ownership' and check before setting top-level properties...
+  $properties['title'] = !empty($metadata['title']) ? $metadata['title'] : '';
+  $properties['name'] = !empty($metadata['name']) ? $metadata['name'] : '';
+  $properties[$namespace] = $metadata;
+
+  return $properties;
+}

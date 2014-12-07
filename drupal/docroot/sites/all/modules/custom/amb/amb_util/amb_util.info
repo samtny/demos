@@ -1,0 +1,4 @@
+name = AMB Util
+description = Utility Functions.
+package = American Media Base
+core = 7.x

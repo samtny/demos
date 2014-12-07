@@ -1,0 +1,179 @@
+<?php
+
+/**
+ * @file
+ * Module hooks for AMB Asset Browser.
+ */
+
+// Field API hooks.
+require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'includes' . DIRECTORY_SEPARATOR . 'amb_asset_browser.field.inc';
+
+/**
+ * Implements hook_libraries_info().
+ */
+function amb_asset_browser_libraries_info() {
+  $amb_sdks_path = libraries_get_path('amb-sdks');
+
+  $libraries['amb-search-js'] = array(
+    'name' => 'AMB Search Javascript',
+    'library path' => $amb_sdks_path . '/sdk-javascript',
+    'version arguments' => array(
+      'file' => 'README.md',
+      // 0.x: Version 0.1
+      'pattern' => '@Version (\d+.\d+)@',
+      'lines' => 5,
+    ),
+    'files' => array(
+      'js' => array(
+        'source/jquery.search.js',
+      ),
+      'css' => array(
+        'source/css/jquery.search.css' => array(
+          'group' => CSS_THEME,
+          'weight' => 10,
+        ),
+      ),
+    ),
+    'dependencies' => array(
+      'amb-adige-js',
+      'amb-amas-js',
+      'amb-adel-js',
+      'knockout.js',
+      'underscore.js',
+    ),
+    'integration files' => array(
+      'amb_asset_browser' => array(
+        'js' => array(
+          'js/amb_asset_browser.js',
+        ),
+      ),
+    ),
+    'post-load integration files' => TRUE,
+    'callbacks' => array(
+      'pre-load' => array(
+        'amb_asset_browser_libraries_js_preload',
+      ),
+    ),
+  );
+
+  return $libraries;
+}
+
+/**
+ * Libraries callback for amb-search-js.
+ */
+function amb_asset_browser_libraries_js_preload() {
+  drupal_add_library('system', 'ui.dialog');
+
+  $amb_asset_browser_modal = array(
+    '#theme' => 'amb_asset_browser_modal',
+  );
+
+  amb_util_add_region_content('content', drupal_render($amb_asset_browser_modal));
+
+  $css_path = _amb_asset_browser_theme_css_path();
+
+  if ($css_path) {
+    drupal_add_css($css_path, array(
+        'group' => CSS_THEME,
+        'weight' => 20,
+      )
+    );
+  }
+}
+
+/**
+ * Implements hook_element_info().
+ */
+function amb_asset_browser_element_info() {
+  return array(
+    'amb_asset_browser' => array(
+      '#input' => TRUE,
+      '#attributes' => array('class' => array('amb-asset-browser-element')),
+      '#process' => array('amb_asset_browser_amb_asset_browser_process'),
+      '#theme' => 'amb_asset_browser',
+      '#theme_wrappers' => array('form_element'),
+    ),
+  );
+}
+
+/**
+ * Element #process callback for amb_asset_browser.
+ */
+function amb_asset_browser_amb_asset_browser_process($element, &$form_state, $form) {
+  libraries_load('amb-search-js');
+
+  $element['amb_asset_browser_ids'] = array(
+    '#type' => 'hidden',
+    '#default_value' => '',
+    '#attributes' => array('class' => array('amb-asset-browser-ids')),
+  );
+
+  $element['browse'] = array(
+    '#type' => 'submit',
+    '#value' => 'Browse Assets...',
+    '#attributes' => array(
+      'class' => array('browse'),
+    ),
+  );
+
+  return $element;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function amb_asset_browser_theme() {
+  $module_path = drupal_get_path('module', 'amb_asset_browser');
+
+  return array(
+    'amb_asset_browser' => array(
+      'render element' => 'element',
+    ),
+    'amb_asset_browser_modal' => array(
+      'render element' => 'element',
+      'template' => 'amb_asset_browser_modal',
+      'path' => $module_path . '/templates',
+    ),
+  );
+}
+
+/**
+ * Theme callback for amb_asset_browser element.
+ */
+function theme_amb_asset_browser($variables) {
+  $element = $variables['element'];
+
+  $element['#attributes']['type'] = 'amb_asset_browser';
+  element_set_attributes($element, array('id', 'name', 'size'));
+  _form_set_class($element, array('form-amb-asset-browser'));
+
+  $output = '<div' . drupal_attributes($element['#attributes']) . '>' . "\n";
+
+  $output .= drupal_render_children($element);
+
+  $output .= "</div>\n";
+
+  return $output;
+}
+
+/**
+ * Helper function returns appropriate css, if applicable, for current theme.
+ */
+function _amb_asset_browser_theme_css_path() {
+  $css_path = FALSE;
+
+  $module_path = drupal_get_path('module', 'amb_asset_browser');
+
+  $parts = array_slice(explode('/', path_to_theme()), -1);
+  $theme_name = $parts[0];
+
+  foreach (array('bartik', 'garland', 'seven', 'stark', 'eleven') as $supported) {
+    if (strpos($theme_name, $supported) === 0) {
+      $css_path = $module_path . '/css/amb_asset_browser.' . $supported . '.css';
+      break;
+    }
+  }
+
+  return $css_path;
+}

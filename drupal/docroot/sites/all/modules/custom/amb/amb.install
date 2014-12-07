@@ -1,0 +1,17 @@
+<?php
+
+/**
+ * @file
+ * Install hooks for AMB.
+ */
+
+/**
+ * Implements hook_install().
+ */
+function amb_install() {
+  $jquery_update_jquery_version = variable_get('jquery_update_jquery_version', '1.8');
+  variable_set('jquery_update_jquery_version', $jquery_update_jquery_version);
+
+  $jquery_update_jquery_admin_version = variable_get('jquery_update_jquery_admin_version', '');
+  variable_set('jquery_update_jquery_admin_version', $jquery_update_jquery_admin_version);
+}

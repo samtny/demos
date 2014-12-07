@@ -1,0 +1,362 @@
+<?php
+
+/**
+ * @file
+ * Migration tools for American Media Base.
+ */
+
+/**
+ * Global defines.
+ */
+define('AMB_MIGRATE_STATUS_NONE', '0');
+define('AMB_MIGRATE_STATUS_SUCCESS', '1');
+define('AMB_MIGRATE_STATUS_ERROR', '2');
+
+define('AMB_MIGRATE_LOG_INFO', 'info');
+define('AMB_MIGRATE_LOG_WARNING', 'warning');
+
+/**
+ * Implements hook_permission().
+ */
+function amb_migrate_permission() {
+  return array(
+    'administer amb_migrate' => array(
+      'title' => t('Administer AMB Migrate'),
+      'description' => t('Administer the AMB Migrate migration tool'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function amb_migrate_menu() {
+  $items['admin/config/amb/amb_migrate'] = array(
+    'title' => 'AMB Migrate',
+    'description' => 'Migration tools for American Media Base',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('amb_migrate_status_form'),
+    'access arguments' => array('administer amb_migrate'),
+    'file' => 'includes/amb_migrate.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  $items['admin/config/amb/amb_migrate/general'] = array(
+    'title' => 'AMB Migrate',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+
+  $items['admin/config/amb/amb_migrate/content'] = array(
+    'title' => 'Migrate Content',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('amb_migrate_migrate_content_form'),
+    'access arguments' => array('administer amb_migrate'),
+    'file' => 'includes/amb_migrate.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 5,
+  );
+
+  return $items;
+}
+
+/**
+ * Migrate an entity to AMB.
+ */
+function amb_migrate_amb_migrate_entity($entity_type, $id, $options = array(), &$output = array()) {
+  $hook = 'amb_migrate_' . $entity_type;
+
+  if ($module_implements = reset(module_implements($hook))) {
+    $entity = entity_load($entity_type, array($id));
+
+    module_invoke($module_implements, $hook, $entity, $options, $output);
+  };
+}
+
+/**
+ * Migrate a field_collection_item entity to AMB.
+ */
+function amb_migrate_amb_migrate_field_collection_item($field_collection_item, $options = array(), &$output = '') {
+  $force = !empty($options['force']) ? $options['force'] : FALSE;
+  amb_migrate_log('BEGIN migration field_collection_item: ' . $field_collection_item->item_id . ($force ? ' FORCE: TRUE' : ''));
+
+  $item_migration_info = db_select('amb_migrate_field_collection_item', 'm')
+    ->fields('m', array('status'))
+    ->condition('item_id', $field_collection_item->item_id)
+    ->execute()
+    ->fetchAssoc();
+
+  if ($force === TRUE || !($item_migration_info['status'] === AMB_MIGRATE_STATUS_SUCCESS)) {
+    amb_migrate_log('pushing AMB resource for field_collection_item');
+    $amb_resource = amb_resource_push_entity($field_collection_item, 'field_collection_item');
+
+    if (!empty($amb_resource->id)) {
+      amb_migrate_log('pushed field_collection_item to amb_id: ' . $amb_resource->id);
+
+      $field_mapping = !empty($options['field_mapping']) ? $options['field_mapping'] : array();
+      foreach ($field_mapping as $field_name => $mapping) {
+        $field_result = amb_migrate_migrate_field('field_collection_item', $field_collection_item, $field_name, $mapping, $output);
+
+        if (!$field_result) {
+          return FALSE;
+        }
+      }
+
+      amb_migrate_log('saving field collection item');
+
+      entity_save('field_collection_item', $field_collection_item);
+
+      db_merge('amb_migrate_field_collection_item')
+        ->key(array('item_id' => $field_collection_item->item_id))
+        ->fields(array(
+          'status' => AMB_MIGRATE_STATUS_SUCCESS,
+          'amb_id' => $amb_resource->id,
+        ))
+        ->execute();
+    }
+    else {
+      amb_migrate_log('failed to push AMB resource for field_collection_item: ' . $field_collection_item->item_id, AMB_MIGRATE_LOG_WARNING);
+
+      db_merge('amb_migrate_field_collection_item')
+        ->key(array('item_id' => $field_collection_item->item_id))
+        ->fields(array(
+          'status' => AMB_MIGRATE_STATUS_ERROR,
+        ))
+        ->execute();
+
+      return FALSE;
+    }
+  }
+  else {
+    amb_migrate_log('skipping field_collection_item already migrated: ' . $field_collection_item->item_id);
+  }
+
+  amb_migrate_log('END migration field_collection_item: ' . $field_collection_item->item_id);
+
+  return TRUE;
+}
+
+/**
+ * Migrate a node entity to AMB.
+ */
+function amb_migrate_amb_migrate_node($node, $options = array(), &$output = array()) {
+  $force = !empty($options['force']) ? $options['force'] : FALSE;
+
+  amb_migrate_log('BEGIN migration node: ' . $node->nid . ($force ? ' FORCE: TRUE' : ''));
+
+  $node_migration_info = db_select('amb_migrate_node', 'm')
+    ->fields('m', array('status', 'amb_id'))
+    ->condition('nid', $node->nid)
+    ->execute()
+    ->fetchAssoc();
+
+  if ($force === TRUE || !($node_migration_info['status'] === AMB_MIGRATE_STATUS_SUCCESS)) {
+    $amb_id = !empty($node_migration_info['amb_id']) ? $node_migration_info['amb_id'] : FALSE;
+
+    if (!$amb_id) {
+      amb_migrate_log('pushing AMB resource for node');
+      $amb_node_resource = amb_resource_push_entity($node, 'node');
+
+      $amb_id = !empty($amb_node_resource->id) ? $amb_node_resource->id : FALSE;
+    }
+
+    if (!empty($amb_id)) {
+      amb_migrate_log('AMB resource id: ' . $amb_id);
+
+      $field_mapping = !empty($options['field_mapping']) ? $options['field_mapping'] : array();
+      foreach ($field_mapping as $field_name => $mapping) {
+        $field_result = amb_migrate_migrate_field('node', $node, $field_name, $mapping, $output);
+
+        if (!$field_result) {
+          return FALSE;
+        }
+      }
+
+      amb_migrate_log('saving node');
+
+      if ($node_migration_info['status'] === AMB_MIGRATE_STATUS_SUCCESS) {
+        $node->path['amb_resource_push_entity'] = FALSE;
+      }
+      $node->path['pathauto'] = FALSE;
+
+      node_save($node);
+
+      db_merge('amb_migrate_node')
+        ->key(array('nid' => $node->nid))
+        ->fields(array(
+          'status' => AMB_MIGRATE_STATUS_SUCCESS,
+          'amb_id' => $amb_id,
+        ))
+        ->execute();
+    }
+    else {
+      amb_migrate_log('failed to push AMB resource for node: ' . $node->nid, AMB_MIGRATE_LOG_WARNING);
+
+      db_merge('amb_migrate_node')
+        ->key(array('nid' => $node->nid))
+        ->fields(array(
+          'status' => AMB_MIGRATE_STATUS_ERROR,
+        ))
+        ->execute();
+
+      return FALSE;
+    }
+  }
+  else {
+    amb_migrate_log('skipping node already migrated: ' . $node->nid);
+  }
+
+  amb_migrate_log('END migration node: ' . $node->nid);
+
+  return TRUE;
+}
+
+/**
+ * Migrate a field to AMB.
+ */
+function amb_migrate_migrate_field($entity_type, &$entity, $field_name, $field_mapping, &$output = array()) {
+  $field_name_amb = $field_mapping['field_name_amb'];
+
+  amb_migrate_log('migrating field \'' . $field_name . '\' into \'' . $field_name_amb . '\'');
+
+  $field_items = field_get_items($entity_type, $entity, $field_name, $entity->language);
+  $entity->{$field_name_amb}[$entity->language] = array();
+
+  if (!empty($field_items)) {
+    foreach ($field_items as $item) {
+      // TODO: handle all core field types, not just 'file/media/image'.
+      // TODO: do this by 'field_type' instead of looking for 'fid', etc...
+      if ($item['fid']) {
+        $file_field_result = amb_migrate_migrate_file_field_item($entity, $field_name, $field_mapping, $item, $output);
+
+        if ($file_field_result == FALSE) {
+          return FALSE;
+        }
+      }
+      else {
+        amb_migrate_log('skipping migration of missing fid');
+      }
+    }
+  }
+  else {
+    amb_migrate_log('skipping migration of empty field');
+  }
+
+  return TRUE;
+}
+
+/**
+ * Migrate a file field item to AMB.
+ */
+function amb_migrate_migrate_file_field_item(&$entity, $field_name, $field_mapping, $item, &$output = array()) {
+  $file_migration_info = db_select('amb_migrate_file', 'm')
+    ->fields('m', array('status', 'item'))
+    ->condition('fid', $item['fid'])
+    ->execute()
+    ->fetchAssoc();
+
+  $field_name_amb = $field_mapping['field_name_amb'];
+
+  $force = !empty($field_mapping['force']) ? $field_mapping['force'] : FALSE;
+  if ($force === TRUE || !($file_migration_info['status'] === AMB_MIGRATE_STATUS_SUCCESS)) {
+    $file = file_load($item['fid']);
+
+    if (file_exists($file->uri)) {
+      $properties = array();
+      $context = array(
+        'field_name' => $field_name,
+        'entity' => $entity,
+        'file' => $file,
+      );
+
+      drupal_alter('amb_migrate_file_field_properties', $properties, $unused, $context);
+
+      foreach ($properties as $key => $val) {
+        $properties[$key] = strip_tags($val);
+      }
+
+      $file_array = array(
+        'path' => $file->uri,
+        'mimetype' => $file->filemime,
+        'filename' => $file->filename,
+      );
+
+      $field_info_amb = field_info_field($field_name_amb);
+
+      $process_template = !empty($field_mapping['process_template']) ? $field_mapping['process_template'] : $field_info_amb['settings']['process_template'];
+      $access_gate = !empty($field_mapping['access_gate']) ? $field_mapping['access_gate'] : $field_info_amb['settings']['access_gate'];
+
+      $gate = amb_access_gates_access_gates_info($access_gate);
+
+      $asset_resource = amb_adige_create_resource('asset', $properties, NULL, $file_array, $process_template, $gate, FALSE, TRUE);
+
+      if (!empty($asset_resource->id)) {
+        $field_value = array(
+          'aid' => $asset_resource->id,
+        );
+
+        drupal_alter('amb_migrate_file_field_value', $field_value, $field_name, $properties);
+
+        db_merge('amb_migrate_file')
+          ->key(array('fid' => $file->fid))
+          ->fields(array(
+            'amb_id' => $asset_resource->id,
+            'status' => AMB_MIGRATE_STATUS_SUCCESS,
+            'item' => serialize($field_value),
+          ))
+          ->execute();
+
+        amb_migrate_log('created resource: ' . $asset_resource->id);
+
+        $entity->{$field_name_amb}[$entity->language][] = $field_value;
+
+        $output['files_migrated'] = !empty($output['files_migrated']) ? ++$output['files_migrated'] : 1;
+      }
+      else {
+        db_merge('amb_migrate_file')
+          ->key(array('fid' => $file->fid))
+          ->fields(array(
+            'status' => AMB_MIGRATE_STATUS_ERROR,
+          ))
+          ->execute();
+
+        amb_migrate_log('failed to create resource', AMB_MIGRATE_LOG_WARNING);
+      }
+    }
+    else {
+      $output['message'] = 'file does not exist: ' . $file->uri;
+      amb_migrate_log($output['message'], AMB_MIGRATE_LOG_WARNING);
+
+      $ignore_missing = !empty($field_mapping['ignore_missing']) ? $field_mapping['ignore_missing'] : FALSE;
+      if (!$ignore_missing) {
+        db_merge('amb_migrate_file')
+          ->key(array('fid' => $file->fid))
+          ->fields(array(
+            'status' => AMB_MIGRATE_STATUS_ERROR,
+          ))
+          ->execute();
+
+        return FALSE;
+      }
+    }
+  }
+  else {
+    amb_migrate_log('skipping file already migrated: ' . $item['fid']);
+
+    $entity->{$field_name_amb}[$entity->language][] = unserialize($file_migration_info['item']);
+  }
+
+  return TRUE;
+}
+
+/**
+ * Logging.
+ */
+function amb_migrate_log($message, $type = AMB_MIGRATE_LOG_INFO) {
+  db_insert('amb_migrate_log')
+    ->fields(array(
+      'timestamp' => time(),
+      'message' => $message,
+      'type' => $type,
+    ))
+    ->execute();
+}

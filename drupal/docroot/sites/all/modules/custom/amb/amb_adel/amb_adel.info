@@ -1,0 +1,8 @@
+name = AMB Adel
+description = The Resource Delivery component of American Media Base
+package = American Media Base
+core = 7.x
+
+configure = admin/config/amb/adel/general
+
+dependencies[] = amb

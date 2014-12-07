@@ -1,0 +1,221 @@
+<?php
+
+/**
+ * @file
+ * Defines an "amb_asset_multiload" element.
+ */
+
+// Field API hooks.
+require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'includes' . DIRECTORY_SEPARATOR . 'amb_asset_multiload.field.inc';
+
+/**
+ * Implements hook_libraries_info().
+ */
+function amb_asset_multiload_libraries_info() {
+  $libraries['resumable.js'] = array(
+    'name' => 'Resumable.js',
+    'version arguments' => array(
+      'file' => 'component.json',
+      // 1.x: Version 1.0.0
+      'pattern' => '@"version": "(\d+.\d+)@',
+      'lines' => 5,
+    ),
+    'files' => array(
+      'js' => array(
+        'resumable.js',
+      ),
+    ),
+  );
+
+  $libraries['SparkMD5'] = array(
+    'name' => 'SparkMD5',
+    'version arguments' => array(
+      'file' => 'component.json',
+      // 0.x: Version 0.0.5
+      'pattern' => '@"version": "(\d+.\d+)@',
+      'lines' => 5,
+    ),
+    'files' => array(
+      'js' => array(
+        'spark-md5.min.js',
+      ),
+    ),
+  );
+
+  $libraries['jquery.scrollTo'] = array(
+    'name' => 'jquery.scrollTo',
+    'version arguments' => array(
+      'file' => 'jquery.scrollTo.js',
+      // 1.x: Version 1.4.7
+      'pattern' => "@version (\d+.\d+)@",
+      'lines' => 9,
+    ),
+    'files' => array(
+      'js' => array(
+        'jquery.scrollTo.min.js',
+      ),
+    ),
+  );
+
+  $amb_sdks_path = libraries_get_path('amb-sdks');
+
+  $libraries['amb-multiload-js'] = array(
+    'name' => 'AMB Multiload Javascript',
+    'library path' => $amb_sdks_path . '/sdk-javascript',
+    'version arguments' => array(
+      'file' => 'README.md',
+      // 0.x: Version 0.1
+      'pattern' => '@Version (\d+.\d+)@',
+      'lines' => 5,
+    ),
+    'files' => array(
+      'js' => array(
+        'source/jquery.binup.js',
+        'source/jquery.multiload.js',
+      ),
+      'css' => array(
+        'source/css/jquery.multiload.css' => array(
+          'group' => CSS_THEME,
+          'weight' => 10,
+        ),
+      ),
+    ),
+    'dependencies' => array(
+      'resumable.js',
+      'SparkMD5',
+      'jquery.scrollTo',
+      'amb-adige-js',
+    ),
+    'integration files' => array(
+      'amb_asset_multiload' => array(
+        'js' => array(
+          'js/amb_asset_multiload.js',
+        ),
+      ),
+    ),
+    'post-load integration files' => TRUE,
+    'callbacks' => array(
+      'pre-load' => array(
+        'amb_asset_multiload_libraries_js_preload',
+      ),
+    ),
+  );
+
+  return $libraries;
+}
+
+/**
+ * Libraries callback for amb-multiload-js.
+ */
+function amb_asset_multiload_libraries_js_preload() {
+  drupal_add_library('system', 'effects');
+
+  $css_path = _amb_asset_multiload_theme_css_path();
+
+  if ($css_path) {
+    drupal_add_css($css_path, array(
+        'group' => CSS_THEME,
+        'weight' => 11,
+      )
+    );
+  }
+}
+
+/**
+ * Helper function returns appropriate css, if applicable, for current theme.
+ */
+function _amb_asset_multiload_theme_css_path() {
+  $css_path = FALSE;
+
+  $module_path = drupal_get_path('module', 'amb_asset_multiload');
+
+  $parts = array_slice(explode('/', path_to_theme()), -1);
+  $theme_name = $parts[0];
+
+  foreach (array('bartik', 'garland', 'seven', 'stark', 'eleven') as $supported) {
+    if (strpos($theme_name, $supported) === 0) {
+      $css_path = $module_path . '/css/amb_asset_multiload.' . $supported . '.css';
+      break;
+    }
+  }
+
+  return $css_path;
+}
+
+/**
+ * Implements hook_element_info().
+ */
+function amb_asset_multiload_element_info() {
+  return array(
+    'amb_asset_multiload' => array(
+      '#input' => TRUE,
+      '#attributes' => array('class' => array('amb-asset-multiload-element')),
+      '#process' => array('amb_asset_multiload_amb_asset_multiload_process'),
+      '#theme' => 'amb_asset_multiload',
+      '#theme_wrappers' => array('form_element'),
+      '#toggle' => FALSE,
+    ),
+  );
+}
+
+/**
+ * Implements hook_theme().
+ */
+function amb_asset_multiload_theme($existing, $type, $theme, $path) {
+  return array(
+    'amb_asset_multiload' => array(
+      'render element' => 'element',
+    ),
+  );
+}
+
+/**
+ * Element #process callback.
+ */
+function amb_asset_multiload_amb_asset_multiload_process($element, &$form_state, $form) {
+  libraries_load('amb-multiload-js');
+
+  $element['amb_asset_multiload_ids'] = array(
+    '#type' => 'hidden',
+    '#default_value' => '',
+    '#attributes' => array('class' => array('amb-asset-multiload-ids')),
+  );
+
+  $element['multiload'] = array(
+    '#type' => 'markup',
+    '#markup' => '<div class="multiload"></div>',
+  );
+
+  if ($element['#toggle']) {
+    $element['toggle'] = array(
+      '#type' => 'button',
+      '#value' => 'Upload',
+      '#attributes' => array(
+        'class' => array('multiload-toggle'),
+      ),
+    );
+
+    $element['multiload']['#prefix'] = '<div class="multiload-toggle-wrapper element-hidden">';
+    $element['multiload']['#suffix'] = '</div>';
+  }
+
+  return $element;
+}
+
+/**
+ * Element #theme callback.
+ */
+function theme_amb_asset_multiload($variables) {
+  $element = $variables['element'];
+  $element['#attributes']['type'] = 'amb_asset_multiload';
+  element_set_attributes($element, array('id', 'name', 'size'));
+  _form_set_class($element, array('form-amb-asset-multiload'));
+
+  $output = '<div' . drupal_attributes($element['#attributes']) . '>' . "\n";
+
+  $output .= drupal_render_children($element);
+
+  $output .= "</div>\n";
+
+  return $output;
+}

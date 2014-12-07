@@ -1,0 +1,6 @@
+name = AMB Asset AJAX
+description = Enable AJAX update of AMB Asset properties.
+package = American Media Base
+core = 7.x
+
+dependencies[] = amb_asset

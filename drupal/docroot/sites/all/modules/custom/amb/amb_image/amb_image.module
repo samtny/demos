@@ -1,0 +1,268 @@
+<?php
+
+/**
+ * @file
+ * Defines an AMB Image field and formatters.
+ */
+
+// Field API hooks.
+require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'includes' . DIRECTORY_SEPARATOR . 'amb_image.field.inc';
+
+/**
+ * Implements hook_libraries_info().
+ */
+function amb_image_libraries_info() {
+  $amb_sdks_path = libraries_get_path('amb-sdks');
+
+  $libraries['jquery.imgtry.js'] = array(
+    'name' => 'ImgTry jQuery Plugin',
+    'library path' => $amb_sdks_path . '/sdk-javascript',
+    'version arguments' => array(
+      'file' => 'README.md',
+      // 0.x: Version 0.1
+      'pattern' => '@Version (\d+.\d+)@',
+      'lines' => 5,
+    ),
+    'files' => array(
+      'js' => array(
+        'source/jquery.imgtry.js',
+      ),
+    ),
+    'dependencies' => array(
+      'underscore.js',
+    ),
+    'integration files' => array(
+      'amb_image' => array(
+        'js' => array(
+          'js/amb_image.js',
+        ),
+      ),
+    ),
+    'post-load integration files' => TRUE,
+  );
+
+  return $libraries;
+}
+
+/**
+ * Implements hook_element_info().
+ */
+function amb_image_element_info() {
+  $module_path = drupal_get_path('module', 'amb_image');
+
+  return array(
+    'amb_image' => array(
+      '#input' => TRUE,
+      '#attributes' => array('class' => array('amb-image-element', 'clearfix')),
+      '#process' => array('amb_image_amb_image_process'),
+      '#attached' => array(
+        'css' => array(
+          $module_path . '/css/amb_image.css' => array(
+            'group' => CSS_THEME,
+          ),
+        ),
+        'js' => array(
+          $module_path . '/js/amb_image.js' => array(
+            'weight' => -1,
+          ),
+        ),
+      ),
+      '#theme' => 'amb_image_element',
+      '#theme_wrappers' => array('form_element'),
+    ),
+  );
+}
+
+/**
+ * Element #process callback.
+ */
+function amb_image_amb_image_process($element, &$form_state, $form) {
+  $element = amb_asset_amb_asset_process($element, $form_state, $form);
+
+  $item = $element['#value'];
+
+  if (!empty($item['aid'])) {
+    $element['amb_image_derivative'] = array(
+      '#theme' => 'amb_image_derivative',
+      '#aid' => $item['aid'],
+      '#attributes' => array(
+        'class' => 'amb-image-derivative',
+      ),
+    );
+
+    $element['alt'] = array(
+      '#title' => t('Alternate text'),
+      '#type' => 'textfield',
+      '#default_value' => isset($item['alt']) ? $item['alt'] : '',
+      '#description' => t('This text will be used by screen readers, search engines, or when the image cannot be loaded.'),
+      '#maxlength' => 512,
+    );
+
+    $element['title'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Title'),
+      '#default_value' => isset($item['title']) ? $item['title'] : '',
+      '#description' => t('The title is used as a tool tip when the user hovers the mouse over the image.'),
+      '#maxlength' => 1024,
+    );
+
+    $element['caption'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Caption'),
+      '#default_value' => isset($item['caption']) ? $item['caption'] : '',
+      '#description' => t('Provide a caption for the image.'),
+      '#maxlength' => 1024,
+    );
+
+    $element['photo_credit'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Photo Credit'),
+      '#default_value' => isset($item['photo_credit']) ? $item['photo_credit'] : '',
+      '#description' => t('Provide a photo credit for the image.'),
+      '#maxlength' => 1024,
+    );
+
+    $element['remove_button']['#weight'] = 10;
+  }
+
+  return $element;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function amb_image_theme() {
+  return array(
+    'amb_image_derivative' => array(
+      'variables' => array(
+        'aid' => NULL,
+        'process_template' => 'default',
+        'derivative' => '200/thumbnail/default.png',
+        'lazy' => FALSE,
+        'attributes' => array(),
+      ),
+    ),
+    'amb_image_element' => array(
+      'render element' => 'element',
+    ),
+    'amb_image_lazy_load' => array(
+      'variables' => array(
+        'path' => NULL,
+      ),
+    ),
+  );
+}
+
+/**
+ * Returns HTML for an AMB image using specified process_template + derivative.
+ *
+ * @param array $variables
+ *   An associative array containing:
+ *   - aid: The AMB Id of the asset.
+ *   - process_template: The machine_name of a process template
+ *   - derivative: The name of the derivative.
+ *   - lazy: Specify TRUE to lazy-load images after initial page load.
+ *   - alt: The alternative text.
+ *   - title: The title text is displayed when the image is hovered.
+ *   - attributes: Associative array of attributes to be placed in the img tag.
+ *
+ * @ingroup themeable
+ */
+function theme_amb_image_derivative($variables) {
+  $derivative = amb_ambar_derivatives_info($variables['process_template'], $variables['derivative']);
+
+  $variables['width'] = !empty($derivative['width']) ? $derivative['width'] : '';
+  $variables['height'] = !empty($derivative['height']) ? $derivative['height'] : '';
+
+  // Determine the URL for the styled image.
+  $variables['path'] = amb_adel_resource_url($variables['aid'], $variables['derivative']);
+  return $variables['lazy'] ? theme('amb_image_lazy_load', $variables) : theme('image', $variables);
+}
+
+/**
+ * Returns markup for an amb_image form element.
+ */
+function theme_amb_image_element($variables) {
+  $element = $variables['element'];
+  $element['#attributes']['type'] = 'amb_image';
+  element_set_attributes($element, array('id', 'name', 'size'));
+  _form_set_class($element, array('form-amb-image'));
+
+  $output = '<div' . drupal_attributes($element['#attributes']) . '>' . "\n";
+
+  if (!empty($element['amb_image_derivative'])) {
+    if (!empty($element['amb_image_derivative']['#preview_derivative'])) {
+      $preview_derivative_url = amb_adel_resource_url($element['amb_image_derivative']['#aid'], $element['amb_image_derivative']['#preview_derivative']);
+
+      $output .= l(drupal_render($element['amb_image_derivative']), $preview_derivative_url, array(
+        'html' => TRUE,
+        'attributes' => array('target' => '_blank'),
+      ));
+    }
+    else {
+      $output .= drupal_render($element['amb_image_derivative']);
+    }
+
+    $output .= '<div class="amb-image-properties">';
+    $output .= drupal_render_children($element);
+    $output .= '</div>';
+  }
+  else {
+    $output .= drupal_render_children($element);
+  }
+
+  $output .= "</div>\n";
+
+  return $output;
+}
+
+/**
+ * Returns an <img> tag with 'data-src' attribute.
+ */
+function theme_amb_image_lazy_load($variables) {
+  $attributes = $variables['attributes'];
+  $attributes['data-src'] = file_create_url($variables['path']);
+
+  $variables['class'][] = 'lazy-load';
+
+  foreach (array('width', 'height', 'alt', 'title') as $key) {
+    if (isset($variables[$key])) {
+      $attributes[$key] = $variables[$key];
+    }
+  }
+
+  return '<img' . drupal_attributes($attributes) . ' />';
+}
+
+/**
+ * Implements hook_amb_element_ajax_info().
+ */
+function amb_image_amb_element_ajax_info() {
+  return array(
+    'amb_image' => array(
+      'resource_id_key' => 'aid',
+      'properties' => array(
+        'alt' => 'alt',
+        'title' => 'title',
+        'caption' => 'caption',
+        'photo_credit' => 'photo_credit',
+      ),
+    ),
+  );
+}
+
+/**
+ * Returns the URL for an image derivative given a derivative and amb_id.
+ *
+ * @param string $derivative_name
+ *   The name of the derivative to be used with this image.
+ * @param string $amb_id
+ *   The amb_id of the image asset.
+ *
+ * @return string
+ *   The absolute URL where a derivative image can be downloaded,
+ *   suitable for use in an <img> tag.
+ */
+function amb_image_style_url($derivative_name, $amb_id) {
+  return amb_adel_resource_url($amb_id, $derivative_name);
+}

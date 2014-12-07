@@ -1,0 +1,187 @@
+<?php
+
+/**
+ * @file
+ * Methods for serializing Entities into AMB resources.
+ */
+
+/**
+ * Helper function serializes an entite to an AMB resource array.
+ */
+function amb_serialize_amb_serialize_entity($entity, $type = 'node') {
+  $language = $entity->language;
+
+  $entity_data = array(
+    'entity_type' => $type,
+    'bundle' => $entity->type,
+    'nid' => $entity->nid,
+    'status' => $entity->status,
+    'title' => $entity->title,
+    'body' => isset($entity->body[$language][0]['safe_value']) ? $entity->body[$language][0]['safe_value'] : '',
+    'uid' => $entity->uid,
+    'uname' => isset($entity->name) ? $entity->name : '',
+    'unhandled' => array(),
+  );
+
+  foreach ($entity as $field_name => $data) {
+    if (is_array($data) && strpos($field_name, 'field_') === 0) {
+      $field = field_info_field($field_name);
+      $field_type = $field['type'];
+      $field_data = array();
+
+      if (!empty($data) && !empty($entity->{$field_name}[$language])) {
+        $hook = 'amb_field_' . $field_type . '_serialize';
+
+        $modules = module_implements($hook);
+        if (!empty($modules)) {
+          foreach ($modules as $module) {
+            $field_data += module_invoke($module, $hook, $field, $entity->{$field_name}[$language]);
+          }
+
+          $entity_data = array_merge_recursive($entity_data, $field_data);
+        }
+        else {
+          $entity_data['unhandled'] += array($field_name => $hook);
+        }
+      }
+    }
+  }
+
+  return $entity_data;
+}
+
+/**
+ * Implements hook_amb_field_TYPE_serialize().
+ */
+function amb_serialize_amb_field_text_serialize($field, $items) {
+  $field_data = array();
+
+  foreach ($items as $item) {
+    if (!empty($item['value'])) {
+      if (empty($item['format'])) {
+        $field_data[$field['field_name']][] = $item['value'];
+      }
+    }
+  }
+
+  return $field_data;
+}
+
+/**
+ * Implements hook_amb_field_TYPE_serialize().
+ */
+function amb_serialize_amb_field_node_reference_serialize($field, $items) {
+  $field_data = array();
+
+  foreach ($items as $item) {
+    $result = db_select('node', 'n')
+      ->fields('n', array('type', 'title'))
+      ->condition('nid', $item['nid'], '=')
+      ->execute()
+      ->fetchAssoc();
+
+    $field_data[$field['field_name']][$item['nid']] = $result['title'];
+  }
+
+  return $field_data;
+}
+
+/**
+ * Implements hook_amb_field_TYPE_serialize().
+ */
+function amb_serialize_amb_field_taxonomy_term_reference_serialize($field, $items) {
+  $field_data = array();
+
+  foreach ($items as $item) {
+    $term = taxonomy_term_load($item['tid']);
+
+    $field_data[$field['field_name']][$term->tid] = $term->name;
+  }
+
+  return $field_data;
+}
+
+/**
+ * Implements hook_amb_field_TYPE_serialize().
+ */
+function amb_serialize_amb_field_media_serialize($field, $items) {
+  $field_data = array();
+
+  foreach ($items as $item) {
+    $file = file_load($item['fid']);
+
+    $field_data[$field['field_name']][$file->fid] = $file->filename;
+  }
+
+  return $field_data;
+}
+
+/**
+ * Implements hook_amb_field_TYPE_serialize().
+ */
+function amb_serialize_amb_field_field_collection_serialize($field, $items) {
+  $field_data = array(
+    $field['field_name'] => array(),
+    'related' => array(),
+  );
+
+  $ids = array();
+  foreach ($items as $item) {
+    if (!empty($item['value'])) {
+      $ids[] = $item['value'];
+    }
+  }
+
+  $fc_fields = field_info_instances('field_collection_item', $field['field_name']);
+  $fc_items = field_collection_item_load_multiple($ids);
+
+  foreach ($fc_items as $fc_item) {
+    $fc_item_data = array('unhandled' => array());
+
+    foreach ($fc_fields as $fc_field_name => $instance_info) {
+      if (!empty($fc_item->{$fc_field_name}['und'])) {
+        $fc_field_info = field_info_field($fc_field_name);
+
+        $field_type = $fc_field_info['type'];
+        $fc_field_data = array();
+
+        $hook = 'amb_field_' . $field_type . '_serialize';
+
+        $modules = module_implements($hook);
+        if (!empty($modules)) {
+          foreach ($modules as $module) {
+            $fc_field_data += module_invoke($module, $hook, $fc_field_info, $fc_item->{$fc_field_name}['und']);
+          }
+
+          if (!empty($fc_field_data['related'][0])) {
+            $field_data['related'][] = $fc_field_data['related'][0];
+          }
+          $fc_item_data[$fc_field_name] = $fc_field_data[$fc_field_name];
+        }
+        else {
+          $fc_item_data['unhandled'] += array($fc_field_name => $hook);
+        }
+      }
+    }
+
+    $field_data[$field['field_name']][] = $fc_item_data;
+  }
+
+  return $field_data;
+}
+
+/**
+ * Implements hook_amb_field_TYPE_serialize().
+ */
+function amb_image_amb_field_amb_image_serialize($field, $items) {
+  $field_data = array();
+
+  foreach ($items as $item) {
+    $field_data['related'][] = array(
+      'id' => $item['aid'],
+      'resource_type' => 'asset',
+    );
+  }
+
+  return $field_data;
+}

@@ -1,0 +1,78 @@
+<?php
+
+/**
+ * @file
+ * Utility functions for use with AMB modules.
+ */
+
+/**
+ * Collapses text_format values into simple values.
+ */
+function amb_util_element_validate_text_format($element, &$form_state) {
+  $array_parents = $element['#array_parents'];
+
+  $values = drupal_array_get_nested_value($form_state['values'], $array_parents);
+
+  $changed = FALSE;
+
+  foreach ($element as $key => $sub_element) {
+    if (isset($values[$key]) && isset($sub_element['#type']) && $sub_element['#type'] === 'text_format') {
+      $values[$key] = $values[$key]['value'];
+      $changed = TRUE;
+    }
+  }
+
+  if ($changed) {
+    form_set_value($element, $values, $form_state);
+  }
+}
+
+/**
+ * Mimic behavior of drupal_add_region_content().
+ */
+function amb_util_add_region_content($region = NULL, $data = NULL) {
+  $content = &drupal_static(__FUNCTION__, array());
+
+  if (isset($region) && isset($data)) {
+    $content[$region][] = $data;
+  }
+
+  return $content;
+}
+
+/**
+ * Mimic behavior of drupal_get_region_content().
+ */
+function amb_util_get_region_content($region = NULL, $delimiter = ' ') {
+  $content = amb_util_add_region_content();
+
+  if (isset($region)) {
+    if (isset($content[$region]) && is_array($content[$region])) {
+      return implode($delimiter, $content[$region]);
+    }
+  }
+  else {
+    foreach (array_keys($content) as $region) {
+      if (is_array($content[$region])) {
+        $content[$region] = implode($delimiter, $content[$region]);
+      }
+    }
+    return $content;
+  }
+}
+
+/**
+ * Implements hook_page_build().
+ */
+function amb_util_page_build(&$page) {
+  $content = amb_util_get_region_content();
+
+  if (!empty($content)) {
+    foreach ($content as $region => $data) {
+      $page[$region]['amb_util'] = array(
+        '#type' => 'markup',
+        '#markup' => $data,
+      );
+    }
+  }
+}

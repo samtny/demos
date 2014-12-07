@@ -1,0 +1,140 @@
+<?php
+
+/**
+ * @file
+ * Install hooks for AMB Migrate.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function amb_migrate_schema() {
+  $schema['amb_migrate_log'] = array(
+    'description' => 'Logging for resource migration to AMB',
+    'fields' => array(
+      'lid' => array(
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'timestamp' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'message' => array(
+        'type' => 'text',
+        'size' => 'normal',
+        'not null' => FALSE,
+      ),
+      'type' => array(
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => FALSE,
+      ),
+    ),
+    'primary key' => array('lid'),
+  );
+
+  $schema['amb_migrate_node'] = array(
+    'description' => 'AMB node migration mapping',
+    'fields' => array(
+      'nid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'amb_id' => array(
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => FALSE,
+      ),
+      'status' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'message' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+      ),
+    ),
+    'primary key' => array('nid'),
+  );
+
+  $schema['amb_migrate_field_collection_item'] = array(
+    'description' => 'AMB field_collection_item migration mapping',
+    'fields' => array(
+      'item_id' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'amb_id' => array(
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => FALSE,
+      ),
+      'status' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'message' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+      ),
+    ),
+    'primary key' => array('item_id'),
+  );
+
+  $schema['amb_migrate_file'] = array(
+    'description' => 'AMB file migration mapping',
+    'fields' => array(
+      'fid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'amb_id' => array(
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => FALSE,
+      ),
+      'status' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'message' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+      ),
+      'item' => array(
+        'description' => 'Serialized field value of successfully created AMB Asset',
+        'type' => 'blob',
+        'size' => 'big',
+        'not null' => FALSE,
+      ),
+    ),
+    'primary key' => array('fid'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Add the amb_migrate_field_collection_item table for amb_migrate.
+ * @author Sam T
+ */
+function amb_migrate_update_7001() {
+  db_create_table('amb_migrate_field_collection_item', drupal_get_schema_unprocessed('amb_migrate', 'amb_migrate_field_collection_item'));
+
+  return 'Add the amb_migrate_field_collection_item table for amb_migrate';
+}

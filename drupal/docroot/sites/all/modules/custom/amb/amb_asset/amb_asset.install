@@ -1,0 +1,24 @@
+<?php
+
+/**
+ * @file
+ * AMB Asset field install hooks..
+ */
+
+/**
+ * Implements hook_field_schema().
+ */
+function amb_asset_field_schema() {
+  return array(
+    'columns' => array(
+      'aid' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+      ),
+    ),
+    'indexes' => array(
+      'aid' => array('aid'),
+    ),
+  );
+}

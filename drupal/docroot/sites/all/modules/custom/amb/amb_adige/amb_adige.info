@@ -1,0 +1,11 @@
+name = AMB Adige
+description = The Resource Digestion component of American Media Base
+package = American Media Base
+core = 7.x
+
+configure = admin/config/amb/adige/general
+
+dependencies[] = libraries (!=7.x-2.1, >=7.x-2.0+18-dev)
+dependencies[] = amb
+dependencies[] = amb_access_gates
+dependencies[] = amb_persona

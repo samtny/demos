@@ -1,0 +1,4 @@
+name = AMB Amas
+description = The Search component of American Media Base.
+package = American Media Base
+core = 7.x

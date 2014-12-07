@@ -1,0 +1,257 @@
+<?php
+
+/**
+ * @file
+ * AMB Adige is the Resource Creation component of American Media Base.
+ */
+
+/**
+ * Implements hook_permission().
+ */
+function amb_adige_permission() {
+  return array(
+    'administer amb_adige' => array(
+      'title' => t('Administer AMB Adige'),
+      'description' => t('Administer site settings for the AMB Adige service'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function amb_adige_menu() {
+  $items['admin/config/amb/adige'] = array(
+    'title' => 'AMB Adige',
+    'description' => 'Adige is the Resource Creation component of American Media Base.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('amb_adige_general_form'),
+    'access arguments' => array('administer amb_adige'),
+    'file' => 'includes/amb_adige.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  $items['admin/config/amb/adige/general'] = array(
+    'title' => 'General Settings',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_libraries_info().
+ */
+function amb_adige_libraries_info() {
+  $amb_sdks_path = libraries_get_path('amb-sdks');
+
+  $libraries['amb-adige-php'] = array(
+    'name' => 'AMB Adige PHP',
+    'library path' => $amb_sdks_path . '/sdk-php/amb-adige-php-client',
+    'version arguments' => array(
+      'file' => 'README.md',
+      // 0.x: Version 0.1
+      'pattern' => "@Version (\d+.\d+)@",
+      'lines' => 1,
+    ),
+    'files' => array(
+      'php' => array(
+        'src/AdigeClient.php',
+      ),
+    ),
+  );
+
+  $libraries['amb-adige-js'] = array(
+    'name' => 'AMB Adige Javascript',
+    'library path' => $amb_sdks_path . '/sdk-javascript',
+    'version arguments' => array(
+      'file' => 'README.md',
+      // 0.x: Version 0.1
+      'pattern' => '@Version (\d+.\d+)@',
+      'lines' => 5,
+    ),
+    'files' => array(
+      'js' => array(
+        'source/jquery.adige.js',
+      ),
+    ),
+    'dependencies' => array(
+      'amb-persona-js',
+    ),
+    'callbacks' => array(
+      'pre-load' => array(
+        'amb_adige_libraries_js_preload',
+      ),
+    ),
+    'integration files' => array(
+      'amb_adige' => array(
+        'js' => array(
+          'js/amb_adige.js',
+        ),
+      ),
+    ),
+    'post-load integration files' => TRUE,
+  );
+
+  return $libraries;
+}
+
+/**
+ * Libraries pre-load callback.
+ */
+function amb_adige_libraries_js_preload() {
+  $settings = variable_get('amb_adige');
+
+  drupal_add_js(array(
+    'amb_adige' => $settings,
+  ), 'setting');
+}
+
+/**
+ * Create an AMB Resource.
+ *
+ * @param string $resource_type
+ *   The resource type to create, e.g.; 'asset', 'collection', ...
+ * @param array $properties
+ *   Any properties to associate with the resource.
+ * @param array $related
+ *   Any related AMB resources to associate with the new resource, of the form;
+ *     array('id' => [amb resource id]).
+ * @param array $file
+ *   Optional array containing 'path', 'mimetype', 'filename' of a local file.
+ * @param string $process_template
+ *   $process_template The process template to apply.
+ * @param array $access_gate
+ *   The access gate to set for the new resource.
+ * @param bool $verbose
+ *   Set TRUE to print messages.
+ * @param bool $debug
+ *   Set TRUE to add debug info.
+ *
+ * @return object
+ *   object A Resource with property 'id'.
+ */
+function amb_adige_create_resource($resource_type, $properties = array(), $related = array(), $file = array(), $process_template = '', $access_gate = array(), $verbose = FALSE, $debug = FALSE) {
+  $resource = new stdClass();
+
+  $token = amb_persona_get_admin_token();
+
+  if ($token) {
+    $libs = libraries_load('amb-adige-php');
+
+    if ($libs['installed'] === TRUE) {
+
+      $settings = variable_get('amb_adige');
+
+      $options = array(
+        'binary_endpoint' => $settings['binary_endpoint'],
+        'binary_port' => $settings['binary_port'],
+        'resource_endpoint' => $settings['resource_endpoint'],
+        'resource_port' => $settings['resource_port'],
+        'resource_source_name' => $settings['site_source_name'],
+        'process_template' => $process_template,
+        'token' => $token,
+        'debug' => $debug,
+      );
+
+      if (isset($file['path'])) {
+        $wrapper = file_stream_wrapper_get_instance_by_uri($file['path']);
+
+        if ($wrapper) {
+          $file['path'] = $wrapper->realpath();
+          unset($wrapper);
+        }
+      }
+
+      $adige = new AdigeClient($options);
+
+      $adige->createResource($resource_type, $properties, $related, $file, $access_gate);
+
+      if ($adige->getSuccess()) {
+        $resource->id = $adige->getResourceId();
+        if ($verbose) {
+          drupal_set_message(t('Created AMB Resource :amb_id', array(
+            ':amb_id' => $resource->id)));
+        }
+      }
+      else {
+        if ($verbose) {
+          drupal_set_message(t('Failed to Create AMB Resource'), 'warning');
+        }
+      }
+
+      if ($debug) {
+        $resource->debug = $adige->getResult();
+      }
+    }
+  }
+
+  return $resource;
+}
+
+/**
+ * Update an AMB resource.
+ *
+ * @param string $resource_id
+ *   resource_id
+ * @param array $properties
+ *   properties
+ * @param array $related
+ *   related
+ * @param string $process_template
+ *   process_template
+ * @param array $access_gate
+ *   the access gate with which to update the resource
+ * @param bool $verbose
+ *   print info
+ *
+ * @return \stdClass
+ *   returns the Adige resource
+ */
+function amb_adige_update_resource($resource_id, $properties = array(), $related = array(), $process_template = '', $access_gate = array(), $verbose = FALSE, $debug = FALSE) {
+  $resource = new stdClass();
+
+  $token = amb_persona_get_admin_token();
+
+  if ($token) {
+    $libs = libraries_load('amb-adige-php');
+
+    if ($libs['installed'] === TRUE) {
+      $settings = variable_get('amb_adige');
+
+      $options = array(
+        'resource_endpoint' => $settings['resource_endpoint'],
+        'resource_port' => $settings['resource_port'],
+        'resource_source_name' => $settings['site_source_name'],
+        'process_template' => $process_template,
+        'token' => $token,
+        'debug' => $debug,
+      );
+
+      $adige = new AdigeClient($options);
+
+      $adige->updateResource($resource_id, $properties, $related, $access_gate);
+
+      if ($adige->getSuccess()) {
+        $resource->id = $adige->getResourceId();
+
+        if ($verbose) {
+          drupal_set_message(t('Updated AMB Resource :amb_id', array(
+            ':amb_id' => $resource_id)));
+        }
+      }
+      else {
+        if ($verbose) {
+          drupal_set_message(t('Failed to update AMB Resource :amb_id', array(
+            ':amb_id' => $resource_id)));
+        }
+      }
+
+      if ($debug) {
+        $resource->debug = $adige->getResult();
+      }
+    }
+  }
+
+  return $resource;
+}

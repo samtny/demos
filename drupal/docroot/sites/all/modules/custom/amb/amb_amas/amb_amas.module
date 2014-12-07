@@ -1,0 +1,81 @@
+<?php
+
+/**
+ * @file
+ * AMB Amas module hooks.
+ */
+
+/**
+ * Implements hook_permission().
+ */
+function amb_amas_permission() {
+  return array(
+    'administer amb_amas' => array(
+      'title' => t('Administer AMB Amas'),
+      'description' => t('Administer site settings for the AMB Amas service'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function amb_amas_menu() {
+  $items['admin/config/amb/amas'] = array(
+    'title' => 'AMB Amas',
+    'description' => 'Amas is the Search component of American Media Base.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('amb_amas_general_form'),
+    'access arguments' => array('administer amb_amas'),
+    'file' => 'includes/amb_amas.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  $items['admin/config/amb/amas/general'] = array(
+    'title' => 'General Settings',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_libraries_info().
+ */
+function amb_amas_libraries_info() {
+  $amb_sdks_path = libraries_get_path('amb-sdks');
+
+  $libraries['amb-amas-js'] = array(
+    'name' => 'AMB Amas Javascript',
+    'library path' => $amb_sdks_path . '/sdk-javascript',
+    'version arguments' => array(
+      'file' => 'README.md',
+      // 0.x: Version 0.1
+      'pattern' => '@Version (\d+.\d+)@',
+      'lines' => 5,
+    ),
+    'files' => array(
+      'js' => array(
+        'source/jquery.amas.js',
+      ),
+    ),
+    'callbacks' => array(
+      'pre-load' => array(
+        'amb_amas_libraries_js_preload',
+      ),
+    ),
+  );
+
+  return $libraries;
+}
+
+/**
+ * Libraries pre-load callback for amb-amas-js.
+ */
+function amb_amas_libraries_js_preload() {
+  $settings = variable_get('amb_amas');
+
+  drupal_add_js(array(
+    'amb_amas' => $settings,
+  ), 'setting');
+}

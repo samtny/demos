@@ -1,0 +1,7 @@
+name = AMB Asset Multiload
+description = Provides an HTML5 multi-file upload element for AMB Assets.
+package = American Media Base
+core = 7.x
+
+dependencies[] = amb_asset
+dependencies[] = amb_access_gates
